@@ -1,0 +1,29 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* App-wide styles */
+:root {
+  color-scheme: light;
+}
+
+html, body {
+  height: 100%;
+}
+
+body {
+  @apply bg-slate-50 text-slate-900;
+}
+
+/* Simple card utility */
+.card {
+  @apply rounded-2xl bg-white shadow-sm border border-slate-200 p-5;
+}
+
+/* Simple button utility */
+.btn {
+  @apply inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium;
+}
+.btn-primary {
+  @apply bg-brand-600 text-white hover:bg-brand-500;
+}
