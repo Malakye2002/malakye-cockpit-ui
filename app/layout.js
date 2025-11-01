@@ -1,18 +1,14 @@
 export const metadata = {
-  title: "Malakye Cockpit UI",
-  description: "Central admin UI for Malakye.",
+  title: "Malakye Cockpit",
+  description: "Central admin UI",
 };
+
+import "./globals.css";
 
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
-      <body style={{
-        margin: 0,
-        fontFamily: "sans-serif",
-        backgroundColor: "#fafafa"
-      }}>
-        {children}
-      </body>
+      <body className="min-h-screen antialiased">{children}</body>
     </html>
   );
 }
