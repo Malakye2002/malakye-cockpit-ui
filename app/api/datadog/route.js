@@ -1,42 +1,14 @@
 import { NextResponse } from "next/server";
-
 export const dynamic = "force-dynamic";
 
 /**
- * Datadog metrics query proxy
  * GET /api/datadog?query=<DDQL>&from=<unix_sec>&to=<unix_sec>[&debug=1]
- * Example:
- *   /api/datadog?query=avg:system.cpu.user{env:production}
+ * Example: /api/datadog?query=avg:system.cpu.user{env:production}
  */
-
-function json(status, body) {
-  return NextResponse.json(body, { status });
-}
-
-function sanitizeSite(input) {
-  const site = (input || "").trim().toLowerCase();
-  // Accept common Datadog sites and custom subregions (e.g., us5.datadoghq.com)
-  if (!/^[a-z0-9.-]+\.datadoghq\.com$/.test(site)) return null;
-  return site;
-}
-
-async function fetchWithRetry(url, init, { retries = 1, timeoutMs = 8000 } = {}) {
-  let lastErr;
-  for (let attempt = 0; attempt <= retries; attempt++) {
-    const controller = new AbortController();
-    const t = setTimeout(() => controller.abort(), timeoutMs);
-    try {
-      const res = await fetch(url, { ...init, signal: controller.signal });
-      clearTimeout(t);
-      return res;
-    } catch (err) {
-      clearTimeout(t);
-      lastErr = err;
-      // Retry only on network/abort errors; not on HTTP errors (those return a Response)
-      if (attempt < retries) continue;
-    }
-  }
-  throw lastErr;
+function json(status, body) { return NextResponse.json(body, { status }); }
+function sanitizeSite(s) {
+  const site = (s || "").trim().toLowerCase();
+  return /^[a-z0-9.-]+\.datadoghq\.com$/.test(site) ? site : null;
 }
 
 export async function GET(req) {
@@ -44,11 +16,10 @@ export async function GET(req) {
     const { searchParams } = new URL(req.url);
     const query = searchParams.get("query");
     if (!query) return json(400, { ok: false, error: "Missing required 'query' parameter." });
-
-    const nowSec = Math.floor(Date.now() / 1000);
-    const to = Number(searchParams.get("to") || nowSec);
-    const from = Number(searchParams.get("from") || nowSec - 15 * 60); // default 15m
     const debug = searchParams.get("debug") === "1";
+    const now = Math.floor(Date.now() / 1000);
+    const to = Number(searchParams.get("to") || now);
+    const from = Number(searchParams.get("from") || now - 15 * 60);
 
     const rawSite = process.env.DATADOG_SITE || "us5.datadoghq.com";
     const site = sanitizeSite(rawSite);
@@ -59,95 +30,58 @@ export async function GET(req) {
     if (!apiKey) missing.push("DATADOG_API_KEY");
     if (!appKey) missing.push("DATADOG_APP_KEY");
     if (!site) missing.push("DATADOG_SITE");
+    if (missing.length) return json(500, { ok: false, error: `Missing/invalid env(s): ${missing.join(", ")}` });
 
-    if (missing.length) {
-      return json(500, {
-        ok: false,
-        error: `Missing/invalid environment variable(s): ${missing.join(", ")}`,
-        meta: debug ? { rawSite, siteSanitized: !!site } : undefined,
-      });
-    }
+    const base = `https://api.${site}/api/v1/query?from=${from}&to=${to}&query=${encodeURIComponent(query)}`;
 
-    const url =
-      `https://api.${site}/api/v1/query` +
-      `?from=${encodeURIComponent(from)}` +
-      `&to=${encodeURIComponent(to)}` +
-      `&query=${encodeURIComponent(query)}`;
-
-    const res = await fetchWithRetry(
-      url,
-      {
+    // Try with headers; if a proxy strips them, fall back to query-string auth.
+    const attempt = async (useQS) => {
+      const url = useQS
+        ? `${base}&api_key=${encodeURIComponent(apiKey)}&application_key=${encodeURIComponent(appKey)}`
+        : base;
+      const res = await fetch(url, {
         method: "GET",
-        headers: {
+        headers: useQS ? { Accept: "application/json" } : {
           "DD-API-KEY": apiKey,
           "DD-APPLICATION-KEY": appKey,
           Accept: "application/json",
-          "Content-Type": "application/json",
-          "User-Agent": "malakye-cockpit-ui/1.0 (vercel-runtime)",
         },
         cache: "no-store",
-      },
-      { retries: 1, timeoutMs: 9000 }
-    );
+      });
+      const text = await res.text();
+      let data; try { data = JSON.parse(text); } catch { data = { raw: text }; }
+      return { status: res.status, data, urlUsedQS: useQS };
+    };
 
-    const text = await res.text();
-    let payload;
-    try {
-      payload = JSON.parse(text);
-    } catch {
-      payload = { raw: text };
-    }
+    let r = await attempt(false);
+    if (r.status === 401 || r.status === 403) r = await attempt(true);
 
-    if (!res.ok) {
-      // Helpful hints per status
+    if (! (r.status >= 200 && r.status < 300)) {
       const hints = {
-        401:
-          "Unauthorized: confirm DATADOG_APP_KEY (not Key ID) and DATADOG_API_KEY belong to the same org + region.",
-        403:
-          "Forbidden: the application key lacks permissions for metrics query. Regenerate with default/full access.",
-        404:
-          "Not found: verify DATADOG_SITE (e.g., us5.datadoghq.com) and that the /api/v1/query endpoint is correct.",
-        429:
-          "Rate limited: reduce query frequency or widen rollup. Try adding .rollup(60) in the query.",
+        401: "Unauthorized: verify API+APP keys belong to the same org+region and are not revoked.",
+        403: "Forbidden: app key lacks Metrics read scope or owner permissions.",
+        404: "Not found: check DATADOG_SITE (e.g., us5.datadoghq.com).",
+        429: "Rate limited: add .rollup(60) or widen window; reduce polling.",
       };
-      return json(res.status, {
+      return json(r.status, {
         ok: false,
-        error: `Datadog error ${res.status}`,
-        hint: hints[res.status] || "See 'response' for details.",
-        response: payload,
-        meta: debug ? { site, url } : undefined,
+        error: `Datadog error ${r.status}`,
+        hint: hints[r.status] || "See response payload.",
+        response: r.data,
+        meta: debug ? { site, usedQueryStringAuth: r.urlUsedQS } : undefined,
       });
     }
 
-    // Compact summary from the last point of each series (if present)
-    const series = Array.isArray(payload?.series) ? payload.series : [];
+    const series = Array.isArray(r.data?.series) ? r.data.series : [];
     const summary = series.map((s) => {
-      const last =
-        Array.isArray(s.pointlist) && s.pointlist.length
-          ? s.pointlist[s.pointlist.length - 1][1] ?? null
-          : null;
+      const last = Array.isArray(s.pointlist) && s.pointlist.length
+        ? (s.pointlist[s.pointlist.length - 1]?.[1] ?? null)
+        : null;
       return { metric: s.metric, scope: s.scope, last };
     });
 
-    return json(200, {
-      ok: true,
-      query,
-      from,
-      to,
-      site,
-      seriesCount: series.length,
-      summary,
-      raw: payload,
-    });
+    return json(200, { ok: true, site, from, to, query, seriesCount: series.length, summary, raw: r.data });
   } catch (err) {
-    // Normalize common network/abort errors to a consistent shape
-    const name = err?.name || "Error";
-    const message = err?.message || String(err);
-    const isAbort = name === "AbortError" || /aborted|timeout/i.test(message);
-    return json(502, {
-      ok: false,
-      error: isAbort ? "Upstream timeout contacting Datadog" : "Upstream network error",
-      detail: message,
-    });
+    return json(502, { ok: false, error: /abort|timeout/i.test(err?.message || "") ? "Upstream timeout" : err?.message || "Network error" });
   }
 }
