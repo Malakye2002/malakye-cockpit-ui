@@ -1,5 +1,5 @@
 export const dynamic = "force-dynamic";
-import { DATADOG_ENABLED } from "@/lib/flags";
+import { DATADOG_ENABLED } from "../../lib/flags";
 
 export default async function DatadogPage() {
   if (!DATADOG_ENABLED) {
