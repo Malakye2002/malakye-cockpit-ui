@@ -17,9 +17,9 @@ export async function GET() {
       headers: {
         "DD-API-KEY": apiKey,
         "DD-APPLICATION-KEY": appKey,
-        "Accept": "application/json",
+        "Accept": "application/json"
       },
-      cache: "no-store",
+      cache: "no-store"
     });
 
     const text = await res.text();
