@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { DATADOG_ENABLED } from "../../lib/flags";
+import { DATADOG_ENABLED } from "../../../lib/flags";
 
 export const dynamic = "force-dynamic";
 
