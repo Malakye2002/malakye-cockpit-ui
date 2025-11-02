@@ -4,20 +4,12 @@ export const dynamic = "force-dynamic";
 
 /**
  * GET /api/datadog?query=<DDQL>&from=<unix_sec>&to=<unix_sec>
- *
- * Examples:
- *  - p95 latency last 15m for FastAPI service:
- *    /api/datadog?query=p95:trace.fastapi.request.duration{service:api,env:prod}
- *
- *  - active DB time (example):
- *    /api/datadog?query=sum:postgresql.queries.time{*}.rollup(sum,60)
+ * Example:
+ *  /api/datadog?query=avg:system.cpu.user{env:production}
  */
 export async function GET(req) {
   const { searchParams } = new URL(req.url);
   const query = searchParams.get("query");
-  const nowSec = Math.floor(Date.now() / 1000);
-  const to = Number(searchParams.get("to") || nowSec);
-  const from = Number(searchParams.get("from") || (nowSec - 15 * 60)); // default last 15m
 
   if (!query) {
     return NextResponse.json(
@@ -26,9 +18,13 @@ export async function GET(req) {
     );
   }
 
-  const site = process.env.DATADOG_SITE || "datadoghq.com";
-  const apiKey = process.env.DATADOG_API_KEY;
-  const appKey = process.env.DATADOG_APP_KEY;
+  const nowSec = Math.floor(Date.now() / 1000);
+  const to = Number(searchParams.get("to") || nowSec);
+  const from = Number(searchParams.get("from") || nowSec - 15 * 60); // default 15m window
+
+  const site = process.env.DATADOG_SITE?.trim() || "datadoghq.com";
+  const apiKey = process.env.DATADOG_API_KEY?.trim();
+  const appKey = process.env.DATADOG_APP_KEY?.trim();
 
   if (!apiKey || !appKey) {
     return NextResponse.json(
@@ -37,19 +33,31 @@ export async function GET(req) {
     );
   }
 
-  const url = `https://api.${site}/api/v1/query?from=${from}&to=${to}&query=${encodeURIComponent(
-    query
-  )}`;
+  const url = `https://api.${site}/api/v1/query?from=${from}&to=${to}&query=${encodeURIComponent(query)}`;
 
   try {
     const res = await fetch(url, {
+      method: "GET",
       headers: {
         "DD-API-KEY": apiKey,
         "DD-APPLICATION-KEY": appKey,
-        Accept: "application/json",
+        "Content-Type": "application/json",
+        "User-Agent": "malakye-cockpit-ui/1.0 (vercel)",
       },
       cache: "no-store",
     });
+
+    // Check for authentication issues
+    if (res.status === 401) {
+      const text = await res.text();
+      return NextResponse.json(
+        {
+          error: "Datadog API unauthorized — verify DATADOG_APP_KEY and site region (US5)",
+          body: text,
+        },
+        { status: 401 }
+      );
+    }
 
     if (!res.ok) {
       const text = await res.text();
@@ -60,18 +68,24 @@ export async function GET(req) {
     }
 
     const data = await res.json();
-
-    // Simple summary: last point of each series (if present)
     const summary =
       Array.isArray(data.series) &&
       data.series.map((s) => {
-        const last = Array.isArray(s.pointlist) && s.pointlist.length
-          ? s.pointlist[s.pointlist.length - 1][1]
-          : null;
-        return { metric: s.metric, scope: s.scope, last };
+        const lastPoint =
+          Array.isArray(s.pointlist) && s.pointlist.length
+            ? s.pointlist.at(-1)?.[1] ?? null
+            : null;
+        return { metric: s.metric, scope: s.scope, last: lastPoint };
       });
 
-    return NextResponse.json({ ok: true, from, to, query, summary, raw: data });
+    return NextResponse.json({
+      ok: true,
+      query,
+      from,
+      to,
+      summary,
+      raw: data,
+    });
   } catch (err) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
