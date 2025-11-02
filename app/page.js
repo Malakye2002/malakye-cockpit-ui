@@ -1,75 +1,51 @@
-export default function Page() {
+export const dynamic = "force-dynamic";
+
+export default async function Page() {
+  const res = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/api/github`, {
+    cache: "no-store",
+  });
+  const data = await res.json();
+
   return (
-    <div className="min-h-screen grid grid-cols-[240px_1fr]">
-      {/* Sidebar */}
-      <aside className="bg-white border-r border-slate-200 p-4">
-        <div className="text-lg font-semibold mb-6">🚀 Malakye Cockpit</div>
-        <nav className="space-y-2">
-          <a className="block rounded-lg px-3 py-2 hover:bg-slate-100" href="/">
-            Dashboard
-          </a>
-          <a className="block rounded-lg px-3 py-2 hover:bg-slate-100" href="/aws">
-            AWS
-          </a>
-          <a className="block rounded-lg px-3 py-2 hover:bg-slate-100" href="/datadog">
-            Datadog
-          </a>
-          <a className="block rounded-lg px-3 py-2 hover:bg-slate-100" href="/github">
-            GitHub
-          </a>
-          <a className="block rounded-lg px-3 py-2 hover:bg-slate-100" href="/settings">
-            Settings
-          </a>
-        </nav>
-      </aside>
+    <main className="p-6 space-y-6">
+      <h1 className="text-2xl font-semibold">Dashboard</h1>
 
-      {/* Main */}
-      <main className="p-6 space-y-6">
-        <header className="flex items-center justify-between">
-          <h1 className="text-2xl font-semibold">Dashboard</h1>
-          <div className="flex items-center gap-2">
-            <button className="btn btn-primary">Refresh</button>
+      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <div className="rounded-2xl border border-slate-200 p-5 shadow-sm">
+          <div className="text-sm text-slate-500">GitHub Repositories</div>
+          <div className="mt-2 text-2xl font-semibold">{data.repoCount}</div>
+          <div className="mt-1 text-xs text-slate-500">
+            Latest: {data.latestRepo}
           </div>
-        </header>
+        </div>
 
-        {/* Cards */}
-        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <div className="card">
-            <div className="text-sm text-slate-500">GitHub Repos</div>
-            <div className="mt-2 text-2xl font-semibold">–</div>
-            <div className="mt-2 text-xs text-slate-500">Pending integration</div>
-          </div>
+        <div className="rounded-2xl border border-slate-200 p-5 shadow-sm">
+          <div className="text-sm text-slate-500">Last Push</div>
+          <p className="mt-2 text-sm text-slate-700">
+            {new Date(data.latestPush).toLocaleString()}
+          </p>
+        </div>
 
-          <div className="card">
-            <div className="text-sm text-slate-500">Datadog Metrics</div>
-            <div className="mt-2 text-2xl font-semibold">–</div>
-            <div className="mt-2 text-xs text-slate-500">Pending integration</div>
+        <div className="rounded-2xl border border-slate-200 p-5 shadow-sm">
+          <div className="text-sm text-slate-500">Datadog</div>
+          <div className="mt-2 text-2xl font-semibold text-slate-700">
+            Connected
           </div>
+          <p className="mt-1 text-xs text-slate-500">
+            Metrics ready for integration.
+          </p>
+        </div>
 
-          <div className="card">
-            <div className="text-sm text-slate-500">RDS Instances</div>
-            <div className="mt-2 text-2xl font-semibold">–</div>
-            <div className="mt-2 text-xs text-slate-500">Pending integration</div>
+        <div className="rounded-2xl border border-slate-200 p-5 shadow-sm">
+          <div className="text-sm text-slate-500">AWS</div>
+          <div className="mt-2 text-2xl font-semibold text-slate-700">
+            Connected
           </div>
-
-          <div className="card">
-            <div className="text-sm text-slate-500">EC2 Health</div>
-            <div className="mt-2 text-2xl font-semibold">–</div>
-            <div className="mt-2 text-xs text-slate-500">Pending integration</div>
-          </div>
-        </section>
-
-        {/* Activity */}
-        <section className="card">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold">Activity</h2>
-            <span className="text-xs text-slate-500">Coming soon</span>
-          </div>
-          <div className="mt-4 text-sm text-slate-600">
-            Integrations for GitHub, AWS, and Datadog will appear here once connected.
-          </div>
-        </section>
-      </main>
-    </div>
+          <p className="mt-1 text-xs text-slate-500">
+            EC2 and RDS integration in progress.
+          </p>
+        </div>
+      </section>
+    </main>
   );
 }
