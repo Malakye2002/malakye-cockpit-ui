@@ -1,8 +1,4 @@
-import { getGithubStats } from "../lib/github";
-
-export default async function Page() {
-  const github = await getGithubStats();
-
+export default function Page() {
   return (
     <div className="min-h-screen grid grid-cols-[240px_1fr]">
       {/* Sidebar */}
@@ -40,28 +36,26 @@ export default async function Page() {
         <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <div className="card">
             <div className="text-sm text-slate-500">GitHub Repos</div>
-            <div className="mt-2 text-2xl font-semibold">{github.count}</div>
-            <div className="mt-2 text-xs text-slate-500">
-              Latest: {github.latestRepo}
-            </div>
+            <div className="mt-2 text-2xl font-semibold">–</div>
+            <div className="mt-2 text-xs text-slate-500">Pending integration</div>
           </div>
 
           <div className="card">
             <div className="text-sm text-slate-500">Datadog Metrics</div>
-            <div className="mt-2 text-2xl font-semibold">2</div>
-            <div className="mt-2 text-xs text-slate-500">Live samples</div>
+            <div className="mt-2 text-2xl font-semibold">–</div>
+            <div className="mt-2 text-xs text-slate-500">Pending integration</div>
           </div>
 
           <div className="card">
             <div className="text-sm text-slate-500">RDS Instances</div>
-            <div className="mt-2 text-2xl font-semibold">2</div>
-            <div className="mt-2 text-xs text-slate-500">us-east-1</div>
+            <div className="mt-2 text-2xl font-semibold">–</div>
+            <div className="mt-2 text-xs text-slate-500">Pending integration</div>
           </div>
 
           <div className="card">
             <div className="text-sm text-slate-500">EC2 Health</div>
-            <div className="mt-2 text-2xl font-semibold">OK</div>
-            <div className="mt-2 text-xs text-slate-500">Last check: now</div>
+            <div className="mt-2 text-2xl font-semibold">–</div>
+            <div className="mt-2 text-xs text-slate-500">Pending integration</div>
           </div>
         </section>
 
@@ -69,13 +63,10 @@ export default async function Page() {
         <section className="card">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold">Activity</h2>
-            <span className="text-xs text-slate-500">live preview</span>
+            <span className="text-xs text-slate-500">Coming soon</span>
           </div>
           <div className="mt-4 text-sm text-slate-600">
-            Latest GitHub push:{" "}
-            <span className="font-medium">
-              {new Date(github.latestPush).toLocaleString()}
-            </span>
+            Integrations for GitHub, AWS, and Datadog will appear here once connected.
           </div>
         </section>
       </main>
