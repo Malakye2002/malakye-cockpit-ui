@@ -1,9 +1,13 @@
+export const dynamic = "force-dynamic";
+
 export const metadata = {
   title: "GitHub Repositories",
 };
 
 async function getRepos() {
-  const res = await fetch("https://api.github.com/users/Malakye2002/repos");
+  const res = await fetch("https://api.github.com/users/Malakye2002/repos", {
+    cache: "no-store",
+  });
   if (!res.ok) {
     throw new Error("Failed to fetch repos");
   }
@@ -12,7 +16,6 @@ async function getRepos() {
 
 export default async function GitHubPage() {
   const repos = await getRepos();
-
   return (
     <main style={{ padding: "2rem" }}>
       <h1>GitHub Repositories</h1>
