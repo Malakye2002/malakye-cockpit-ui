@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { DATADOG_ENABLED } from "@/lib/flags";
+import { DATADOG_ENABLED } from "../../lib/flags";
 
 export const dynamic = "force-dynamic";
 
@@ -17,6 +17,7 @@ export async function GET(req: Request) {
     const nowSec = Math.floor(Date.now() / 1000);
     const to = Number(searchParams.get("to") || nowSec);
     const from = Number(searchParams.get("from") || (nowSec - 15 * 60));
+
     if (!query) {
       return NextResponse.json({ ok: false, error: "Missing 'query'" }, { status: 400 });
     }
@@ -36,6 +37,7 @@ export async function GET(req: Request) {
     });
 
     const text = await res.text();
+
     if (!res.ok) {
       return NextResponse.json(
         { ok: false, error: `Datadog error ${res.status}`, response: safeParse(text) },
@@ -60,5 +62,9 @@ export async function GET(req: Request) {
 }
 
 function safeParse(t: string) {
-  try { return JSON.parse(t); } catch { return { raw: t }; }
+  try {
+    return JSON.parse(t);
+  } catch {
+    return { raw: t };
+  }
 }
